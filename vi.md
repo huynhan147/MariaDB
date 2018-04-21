@@ -4,13 +4,13 @@
 
 ## Một bài học nhỏ trong "compound indexes" ("composite indexes")
 
-Tài liệu này ban đầu có vẻ đơn giản và nhàm chán, nhưng đã được xây dựng thông tin thú vị hơn, có lẽ những điều bạn không nhận ra về cách MariaDB và chỉ mục MySQL hoạt động.
+Tài liệu này ban đầu có vẻ đơn giản và nhàm chán, nhưng đã được xây dựng đến các thông tin thú vị hơn, có lẽ những điều bạn không nhận ra về cách chỉ mục MariaDB và MySql hoạt động.
 
 Điều này cũng giải thích [EXPLAIN][1] (ở một mức độ nào đó).
 
 (Hầu hết điều này cũng áp dụng cho các cơ sở dữ liệu không phải MySQL.)
 
-## The query to discuss
+## Câu truy vấn để thảo luận
 
 Câu hỏi đặt ra là "Andrew Johnson là tổng thống Hoa Kỳ khi nào?".
 
@@ -31,7 +31,7 @@ Bảng `Presidents` có sẵn trông giống như sau:
     ...
     
 
-("Andrew Johnson" đã được chọn cho bài học này vì nó lặp lại)
+("Andrew Johnson" đã được chọn cho bài học này vì sự lặp lại)
 
 Chỉ số nào sẽ là tốt nhất cho câu hỏi đó? Cụ thể hơn, điều gì tốt nhất cho
     
@@ -53,7 +53,7 @@ Một số INDEX để thử ...
 
 ## Không có chỉ mục nào
 
-Vâng, tôi đang fudging một chút ở đây. Tôi có một PRIMARY KEY trên `seq`, nhưng điều đó không có lợi thế về truy vấn chúng tôi đang nghiên cứu.
+Vâng, tôi đang fudging một chút ở đây. Tôi có một PRIMARY KEY là `seq`, nhưng điều đó không có ích về truy vấn chúng tôi đang nghiên cứu.
     
     
     mysql>  SHOW CREATE TABLE Presidents G
@@ -92,21 +92,21 @@ Vâng, tôi đang fudging một chút ở đây. Tôi có một PRIMARY KEY trê
 
 Trước tiên, hãy mô tả cách InnoDB lưu trữ và sử dụng các chỉ mục.
 
-* Dữ liệu và PRIMARY KEY được "clustered" lại với nhau trên BTree. 
-* Tra cứu BTree khá nhanh và hiệu quả. Đối với một bảng hàng triệu dòng có thể có 3 cấp độ của BTree, và hai cấp cao nhất có thể được lưu trữ. 
+* Dữ liệu và PRIMARY KEY được "nhóm lại" với nhau trên BTree. 
+* Tra cứu BTree khá nhanh và hiệu quả. Đối với một bảng hàng triệu dòng có thể có 3 cấp độ của BTree, và hai cấp cao nhất có thể được lưu trữ trong bộ nhớ cache. 
 * Mỗi chỉ số phụ nằm trong một BTree khác, với PRIMARY KEY ở lá. 
-* Tìm nạp các mục 'consecutive' (theo chỉ mục) từ BTree rất hiệu quả vì chúng được lưu trữ liên tiếp.
+* Tìm nạp các mục 'liên tiếp' (theo chỉ mục) từ BTree rất hiệu quả vì chúng được lưu trữ liên tiếp.
 * Để đơn giản, chúng ta có thể đếm từng tra cứu BTree dưới dạng 1 đơn vị công việc và bỏ qua các lần quét cho các mục liên tiếp. Điều này xấp xỉ số lần truy cập đĩa cho một bảng lớn trong một hệ thống bận. 
 
 Đối với MyISAM, PRIMARY KEY không được lưu trữ với dữ liệu, vì vậy hãy nghĩ về nó như là một khóa thứ cấp (rất đơn giản).
 
 ## INDEX(first_name), INDEX(last_name)
 
-Với người mới làm quen, khi anh ấy biết về lập chỉ mục, hãy quyết định lập chỉ mục nhiều cột, mỗi lần một cột. Nhưng...
+Với người mới làm quen, khi anh ấy biết về lập chỉ mục, hãy quyết định lập chỉ mục nhiều cột, tất cả trong một lần. Nhưng...
 
 MySQL hiếm khi sử dụng nhiều hơn một chỉ mục tại một thời điểm trong một truy vấn. Vì vậy, nó sẽ phân tích các chỉ số có thể.
 
-* first_name -- có 2 dòng khả dụng (một tra cứu BTree, say đó duyệt lần lượt) 
+* first_name -- có 2 dòng khả dụng (một tra cứu BTree, sau đó duyệt lần lượt) 
 * last_name -- có 2 dòng khả dụng.Giả sử nó chọn last_name. Dưới đây là các bước để thực hiện SELECT: 1\. Sử dụng INDEX(last_name), tìm 2 mục chỉ mục với last_name = 'Johnson'. 2\. Lấy được PRIMARY KEY (ngầm được thêm vào mỗi chỉ số phụ trong InnoDB); lấy (17, 36). 3\. Tiếp cận dữ liệu bằng cách sử dụng seq = (17, 36) để có được các dòng cho Andrew Johnson and Lyndon B. Johnson. 4\. Sử dụng phần còn lại của mệnh đề WHERE lọc tất cả trừ hàng mong muốn. 5\. Đưa ra kết quả (1865-1869). 
     
     
@@ -167,7 +167,7 @@ EXPLAIN không cung cấp thông tin chi tiết về số lượng hàng đượ
 
 ## "Covering": INDEX(last_name, first_name, term)
 
-Surprise! Chúng tôi thực sự có thể làm tốt hơn một chút. Chỉ mục "Covering" là chỉ mục trong đó _tất cả_ các trường của SELECT được tìm thấy trong chỉ mục. Nó có thêm điểm cộng không phải tiếp cận "data" để hoàn thành công việc. 1\. Đi sâu vào BTree để có được chỉ mục chính xác của hàng Johnson+Andrew; được seq = (17). 2\. Đưa ra kết quả (1865-1869). "data" của BTree không được động tới; đây là một cải tiến so với "compound".
+Surprise! Chúng ta thực sự có thể làm tốt hơn một chút. Chỉ mục "Covering" là chỉ mục trong đó _tất cả_ các trường của SELECT được tìm thấy trong chỉ mục. Nó có thêm điểm cộng không phải tiếp cận "data" để hoàn thành công việc. 1\. Đi sâu vào BTree để có được chỉ mục chính xác của hàng Johnson+Andrew; được seq = (17). 2\. Đưa ra kết quả (1865-1869). "data" của BTree không được động tới; đây là một cải tiến so với "compound".
     
     
         ... ADD INDEX covering(last_name, first_name, term);
@@ -190,7 +190,7 @@ Mọi thứ đều tương tự như sử dụng  "compound", ngoại trừ vi�
 
 * Điều gì sẽ xảy ra nếu bạn xáo trộn các trường trong mệnh đề WHERE? Trả lời: Thứ tự của những thứ trong AND không quan trọng. 
 * Điều gì sẽ xảy ra nếu bạn xáo trộn các trường trong INDEX? Trả lời: Nó có thể tạo nên sự khác biệt lớn. Xem thêm sau một phút nữa. 
-* Điều gì sẽ xảy ra nếu có thêm trường vào cuối? Trả lời: Có 1 chút ảnh hưởng; có thể rất nhiều (ví dụ, 'covering'). 
+* Điều gì sẽ xảy ra nếu có thêm trường vào cuối? Trả lời: Có 1 chút ảnh hưởng; có thể rất nhiều cái tốt (ví dụ, 'covering'). 
 * Dư thừa? Sẽ thế nào, nếu bạn có cả hai: INDEX(a), INDEX(a,b)? Trả lời: Dư thừa chi phí một cái gì đó trong INSERT; nó hiếm khi hữu ích cho các SELECT. 
 * Tiền tố? Đó là, INDEX(last_name(5). first_name(5)) Trả lời : Đừng bận tâm; nó hiếm khi có tác dụng, và thường là làm hại. (Chi tiết trong một topic khác) 
 
