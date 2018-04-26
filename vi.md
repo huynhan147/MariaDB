@@ -6,7 +6,7 @@
 
 Tài liệu này ban đầu có vẻ đơn giản và nhàm chán, nhưng đã được xây dựng thông tin thú vị hơn, có lẽ những điều bạn không nhận ra về cách MariaDB và chỉ mục MySQL hoạt động.
 
-Điều này cũng giải thích [EXPLAIN][1] (ở một mức độ nào đó).
+Điều này cũng đuợc giải thích trong [EXPLAIN][1] (ở một mức độ nào đó).
 
 (Hầu hết điều này cũng áp dụng cho các cơ sở dữ liệu không phải MySQL.)
 
@@ -42,7 +42,7 @@ Chỉ số nào sẽ là tốt nhất cho câu hỏi đó? Cụ thể hơn, đi�
               AND  first_name = 'Andrew';
     
 
-Một số INDEX để thử ...
+Một số cách INDEX để thử ...
 
 * Không có chỉ mục nào
 * INDEX(first_name), INDEX(last_name) (hai chỉ mục riêng biệt) 
